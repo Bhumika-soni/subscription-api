@@ -22,7 +22,7 @@ class PlanSeeder extends Seeder
         Plan::create([
             'name' => 'Premium Plan',
             'price' => 599.00,
-            'duration' => 60,
+            'duration' => 100,
         ]);
 
         Plan::create([

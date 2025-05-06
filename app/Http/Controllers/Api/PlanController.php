@@ -17,7 +17,7 @@ class PlanController extends Controller
             $q->where('status', 'active');
         }])->get();
 
-        if(!$plans->isEmpty()){
+        if($plans->isEmpty()){
             return $this->errorResponse('Plan not Found.', 204);
         }
 
