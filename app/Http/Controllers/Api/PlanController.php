@@ -3,16 +3,24 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 
 class PlanController extends Controller
 {
-    public function index()
+    use ApiResponse;
+
+    public function listPlans() 
     {
-        $plans = \App\Models\Plan::withCount(['subscriptions' => function ($q) {
+        $plans = Plan::withCount(['subscriptions' => function($q) {
             $q->where('status', 'active');
         }])->get();
 
-        return response()->json($plans);
+        if(!$plans->isEmpty()){
+            return $this->errorResponse('Plan not Found.', 204);
+        }
+
+        return $this->successResponse($plans, 'Get Plans Successfully.');
     }
 }

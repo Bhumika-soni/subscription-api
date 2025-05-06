@@ -3,52 +3,73 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Plan;
 use App\Models\Subscription;
+use App\Models\User;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 
 class SubscriptionController extends Controller
 {
-    public function store(Request $request)
+
+    use ApiResponse;
+    
+    public function createSubscription(Request $request) 
     {
         $request->validate([
-            'plan_id' => 'required|exists:plans,id',
+            'plan_id' => 'required|exists:plans,id'
         ]);
-
+    
         $userId = $request->header('x-user-id');
-        $user = \App\Models\User::findOrFail($userId);
-        $plan = \App\Models\Plan::findOrFail($request->plan_id);
+        if(!$userId) {
+            return $this->errorResponse('Please Provide valid UserId.');
+        }
 
-        // Cancel existing active subscriptions
+        $user = User::where('id', $userId)->first();
+        if(!$user){
+            return $this->errorResponse('user not found', 200);
+        }
+        
+        $plan = Plan::where('id', $request->plan_id)->first();
+        if(!$plan){
+            return $this->errorResponse('plan not found', 200);
+        }
+    
         $user->subscriptions()->where('status', 'active')->update(['status' => 'cancelled']);
-
-        $subscription = Subscription::create([
-            'user_id' => $user->id,
+    
+        $start = now();
+        $end = now()->addDays($plan->duration);
+    
+        $subscription = $user->subscriptions()->create([
             'plan_id' => $plan->id,
-            'start_date' => now(),
-            'end_date' => now()->addDays($plan->duration),
-            'status' => 'active',
+            'start_date' => $start,
+            'end_date' => $end,
+            'status' => 'active'
         ]);
-
-        return response()->json($subscription, 201);
+    
+        return $this->successResponse($subscription, 'user subscription created.', 201);
     }
-
-    public function cancel($id, Request $request)
+    
+    public function cancelSubscription($id, Request $request) 
     {
         $userId = $request->header('x-user-id');
-        $subscription = Subscription::where('id', $id)->where('user_id', $userId)->firstOrFail();
-
-        if ($subscription->status !== 'active') {
-            return response()->json(['message' => 'Subscription is not active'], 400);
+        $subscription = Subscription::where('id', $id)->where('user_id', $userId)->first();
+        if(!$subscription) {
+            return $this->errorResponse('subscription not found for this user.', 200);
         }
 
         $subscription->update(['status' => 'cancelled']);
 
-        return response()->json(['message' => 'Subscription cancelled']);
+        return $this->successResponse([], 'subscription cancelled Successfully.', 200);
     }
-
-    public function userSubscriptions($id)
+    
+    public function userSubscriptions($id) 
     {
-        $user = \App\Models\User::with('subscriptions.plan')->findOrFail($id);
-        return response()->json($user->subscriptions);
+        $subs = Subscription::with('plan')->where('user_id', $id)->get();
+        if(!$subs->isEmpty()) {
+            return $this->errorResponse('subscription not found for this user.', 200);
+        }
+        return $this->successResponse($subs, 'get user subscriptions.', 200);
     }
+    
 }
